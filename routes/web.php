@@ -7,6 +7,7 @@ use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\DashboardRHController;
 use Illuminate\Support\Facades\Route;
 
+
 //page d'accueil
 Route::get('/', function () {
     return view('welcome');
@@ -14,9 +15,7 @@ Route::get('/', function () {
 
 //routes Employé
 Route::middleware(['auth', 'role:employe'])->group(function () {
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+   Route::get('/dashboard', [App\Http\Controllers\ParcoursController::class, 'index'])->name('dashboard');
 
     Route::get('/parcours', [ParcoursController::class, 'index'])->name('parcours.index');
     Route::get('/parcours/{parcours}', [ParcoursController::class, 'show'])->name('parcours.show');
@@ -40,5 +39,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+Route::get('/rh/dashboard', [App\Http\Controllers\DashboardRHController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('rh.dashboard');
 
-require __DIR__.'/auth.php';
+require __DIR__.'/auth.php';    
