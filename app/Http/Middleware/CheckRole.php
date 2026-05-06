@@ -8,10 +8,21 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
+    /**
+     * Vérifie que l'utilisateur a le bon rôle
+     * CDC : F24 - Rôle distinct employé / manager
+     */
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (!$request->user() || $request->user()->role !== $role) {
-            abort(403, 'Accès refusé.');
+        // Vérifie si l'utilisateur est connecté
+        if (!auth()->check()) {
+            return redirect('/login');
+        }
+
+        // Vérifie si l'utilisateur a le bon rôle
+        if (auth()->user()->role !== $role) {
+            return redirect('/dashboard')
+                ->with('error', 'Accès non autorisé.');
         }
 
         return $next($request);
