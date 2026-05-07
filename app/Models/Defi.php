@@ -17,17 +17,15 @@ class Defi extends Model
         'contenu_json' => 'array',
     ];
 
-    public function verifierReponse(array $reponses): int
+    public function verifierReponse($reponseDonnee): int
     {
-        $questions = $this->contenu_json['questions'];
-        $bonnes = 0;
-        foreach ($questions as $question) {
-            $id = $question['id'];
-            if (isset($reponses[$id]) && $reponses[$id] === $question['bonne_reponse']) {
-                $bonnes++;
-            }
-        }
-        return (int) round(($bonnes / count($questions)) * 100);
+    // On compare la réponse choisie par l'utilisateur avec la bonne réponse en BDD
+    // Si c'est juste, on retourne 100%, sinon 0%
+    if ($this->reponse_correcte === $reponseDonnee) {
+        return 100;
+    }
+
+    return 0;
     }
 
     public function donnerExplicationBienveillante(int $score): string
