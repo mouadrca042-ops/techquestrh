@@ -7,6 +7,10 @@ use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\DashboardRHController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/test-role', function() {
+    return "Mon rôle actuel est : " . auth()->user()->role;
+});
+
 //page d'accueil
 Route::get('/', function () {
     return view('welcome');
