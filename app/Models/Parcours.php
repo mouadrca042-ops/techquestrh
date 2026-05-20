@@ -14,13 +14,17 @@ class Parcours extends Model
 
     public function calculerProgressionGlobale(int $userId): int
     {
-        $total = $this->nb_defis_total;
-        if ($total === 0) return 0;
-        $completes = Progression::where('user_id', $userId)
-                                ->whereHas('defi', fn($q) => $q->where('parcours_id', $this->id))
-                                ->where('score', '>', 0)
-                                ->count();
-        return (int) round(($completes / $total) * 100);
+        $totalDefis = $this->defis()->count();
+        if ($totalDefis == 0) return 0;
+
+        $defisTermines = \DB::table('progressions')
+            ->join('defis', 'progressions.defi_id', '=', 'defis.id')
+            ->where('defis.parcours_id', $this->id)
+            ->where('progressions.user_id', $userId)
+            ->where('progressions.score', '>=', 100) // Supposons que 100 est le score minimum pour valider un défi
+            ->count();
+
+        return round(($defisTermines / $totalDefis) * 100);
     }
 
     // Relations
