@@ -1,90 +1,78 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-2xl text-blue-800 leading-tight">
-            {{ __('Mon Espace Apprentissage') }}
-        </h2>
-    </x-slot>
+    <div class="py-12 bg-gray-50 min-h-screen">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-10">
-                
-                <!-- En-tête Profil -->
-                <div class="flex items-center space-x-6 mb-10 border-b pb-6">
-                    <div class="h-20 w-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                        {{ substr(Auth::user()->name, 0, 1) }}
+            {{-- 1. BIENVENUE & PROFIL HEADER --}}
+            <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center space-x-5">
+                    <div class="flex-shrink-0">
+                        <div class="h-20 w-20 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold">
+                            {{ substr($user->name, 0, 2) }}
+                        </div>
                     </div>
                     <div>
-                        <h1 class="text-4xl font-bold text-gray-900">Bonjour, {{ Auth::user()->name }} !</h1>
-                        <p class="text-xl text-gray-500 italic">Poste : {{ Auth::user()->poste ?? 'En cours de définition' }}</p>
+                        <span class="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Espace Employé senior</span>
+                        <h2 class="text-3xl font-black text-gray-900 mt-1">Ravi de vous revoir, {{ $user->name }} !</h2>
+                        <p class="text-gray-500 text-sm mt-0.5">Prêt à relever de nouveaux défis et à perfectionner vos compétences aujourd'hui ?</p>
                     </div>
                 </div>
 
-                <!-- Grille de Progression (Objectif S2) -->
+                {{-- STATS RAPIDES (GAMIFICATION) --}}
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 min-w-[180px]">
+                        <div class="p-3 bg-amber-100 rounded-xl text-amber-600 text-2xl">⭐</div>
+                        <div>
+                            <div class="text-2xl font-black text-gray-900">{{ $progressionGlobale }}%</div>
+                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Progression Globale</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 min-w-[180px]">
+                        <div class="p-3 bg-green-100 rounded-xl text-green-600 text-2xl">⚡</div>
+                        <div>
+                            <div class="text-2xl font-black text-gray-900">Débutant</div>
+                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Niveau actuel</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- 2. GRILLE DES PARCOURS EN COURS --}}
+            <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Nos parcours de formation</h3>
+                    <span class="text-sm font-medium text-gray-500">"Excellent travail. Continuez ainsi !"</span>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Carte Niveau -->
-                    <div class="bg-blue-50 p-8 rounded-2xl border-2 border-blue-200 text-center">
-                        <p class="text-blue-600 text-xl font-semibold uppercase">Votre Niveau</p>
-                        <p class="text-6xl font-black text-blue-900 mt-2">{{ Auth::user()->niveau }}</p>
-                    </div>
+                    @foreach($parcoursEnCours as $p)
+                        <div class="bg-gray-50 p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-lg hover:border-blue-300 transition duration-300">
+                            <div>
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="text-2xl font-bold text-blue-900">{{ $p->titre }}</h4>
+                                    <span class="bg-blue-100 text-blue-800 text-sm font-bold px-4 py-2 rounded-full uppercase">{{ $p->outil }}</span>
+                                </div>
+                                <p class="text-gray-600 text-lg mb-8 min-h-[60px]">{{ $p->description }}</p>
+                            </div>
 
-                    <!-- Carte XP -->
-                    <div class="bg-green-50 p-8 rounded-2xl border-2 border-green-200 text-center">
-                        <p class="text-green-600 text-xl font-semibold uppercase">Points d'Expérience</p>
-                        <p class="text-6xl font-black text-green-900 mt-2">{{ Auth::user()->xp_total }} XP</p>
-                    </div>
-                </div>
-
-                <!-- Message d'encouragement -->
-                <div class="mt-12 p-6 bg-yellow-50 rounded-xl border border-yellow-100 text-center">
-                    <p class="text-2xl text-yellow-800 font-medium">"Excellent travail. Continuez ainsi !"</p>
-                </div>
-                <!-- Section : Choix du Parcours (Objectif S3) -->
-            <div class="mt-16">
-                <h3 class="text-3xl font-bold text-gray-800 mb-8 border-b-2 border-blue-200 pb-2">Nos parcours de formation</h3>
-
-                <!-- Grille des parcours générée dynamiquement -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    @foreach($parcours as $p)
-                
-<div class="bg-white p-8 rounded-2xl border-2 border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-300 transition duration-300 flex flex-col justify-between">
-    
-    <div>
-        <div class="flex items-center justify-between mb-4">
-            <h4 class="text-2xl font-bold text-blue-900">{{ $p->titre }}</h4>
-            <span class="bg-blue-100 text-blue-800 text-sm font-bold px-4 py-2 rounded-full uppercase">{{ $p->outil }}</span>
-        </div>
-        <p class="text-gray-600 text-lg mb-8 min-h-[60px]">{{ $p->description }}</p>
-    </div>
-    
-    <div>
-        <!-- NOUVEAU : Barre de progression (Objectif S3) -->
-        <div class="mb-6">
-            <div class="flex justify-between text-sm font-bold text-gray-500 mb-2">
-                <span>Progression</span>
-                <span>0 / {{ $p->nb_defis_total }} défis</span>
-            </div>
-            <!-- Fond de la barre (gris) -->
-            <div class="w-full bg-gray-200 rounded-full h-3">
-                <!-- Remplissage de la barre (vert), forcé à 0% pour le moment -->
-                <div class="bg-green-500 h-3 rounded-full" style="width: 0%;"></div>
-            </div>
-        </div>
-
-        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl transition text-xl shadow-md">
-            Choisir ce parcours
-       </button>
-    </div> 
-
- </div> 
-
-
-@endforeach
-</div>
+                            <div class="mt-4">
+                                <div class="flex justify-between text-sm font-bold text-gray-500 mb-2">
+                                    <span>Progression</span>
+                                    <span>{{ $p->titre == 'Les Fondamentaux d\'Excel' ? $progressionExcel : $progressionTeams }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="bg-blue-600 h-3 rounded-full" style="width: {{ $p->titre == 'Les Fondamentaux d\'Excel' ? $progressionExcel : $progressionTeams }}%"></div>
+                                </div>
+                                <a href="{{ route('parcours.show', $p->id) }}" class="mt-6 inline-flex w-full justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">
+                                    Reprendre le parcours
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
 
-            </div>
         </div>
     </div>
 </x-app-layout>
+
