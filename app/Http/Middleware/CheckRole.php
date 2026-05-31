@@ -8,10 +8,19 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    public function handle(Request $request, Closure $next, string $role): Response
+        public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (!$request->user() || $request->user()->role !== $role) {
-            abort(403, 'Accès refusé.');
+        if (!$request->user()) {
+            return redirect()->route('login');
+        }
+
+        if ($request->user()->role !== $role) {
+            // Rediriger vers le bon dashboard selon le rôle réel
+            return match($request->user()->role) {
+                'admin'   => redirect()->route('admin.dashboard'),
+                'manager' => redirect()->route('dashboard.rh'),
+                default   => redirect()->route('dashboard'),
+            };
         }
 
         return $next($request);

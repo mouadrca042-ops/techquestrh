@@ -20,10 +20,9 @@ class Badge extends Model
         ]);
     }
 
-    // Relation
-    public function users(): BelongsToMany
+   // Relation
+    public function users()
     {
-        return $this->belongsToMany(User::class, 'user_badges')
-                    ->withPivot('obtenu_at');
+        return $this->belongsToMany(User::class, 'user_badges', 'badge_id', 'user_id')->withPivot('obtenu_at');
     }
 }
