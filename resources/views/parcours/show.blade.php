@@ -12,7 +12,20 @@
 
     <div class="py-12">
         <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
-            
+
+            {{-- Messages --}}
+            @if(session('success'))
+                <div id="msg-success" class="bg-green-50 border-2 border-green-300 text-green-800 rounded-2xl px-6 py-5 mb-6 text-lg font-semibold transition-opacity duration-500">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if(session('explication'))
+                <div id="msg-explication" class="bg-blue-50 border-2 border-blue-200 text-blue-800 rounded-2xl px-6 py-5 mb-6 text-base transition-opacity duration-500">
+                    💡 <span class="font-bold">Explication :</span> {{ session('explication') }}
+                </div>
+            @endif
+
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-2xl p-8 mb-8 border border-gray-100">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-xl font-bold text-gray-700">Votre avancée dans ce parcours</h3>
@@ -62,7 +75,7 @@
                                 </div>
                             @else
                                 <a href="{{ route('defis.show', $defi->id) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg transition-transform active:scale-95 inline-block text-center">
-                                          Lancer
+                                    Lancer
                                 </a>
                             @endif
                         </div>
@@ -75,4 +88,17 @@
             </div>
         </div>
     </div>
+
+    <script>
+        setTimeout(function() {
+            ['msg-success', 'msg-explication'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) {
+                    el.style.opacity = '0';
+                    setTimeout(function() { el.style.display = 'none'; }, 500);
+                }
+            });
+        }, 3000);
+    </script>
+
 </x-app-layout>

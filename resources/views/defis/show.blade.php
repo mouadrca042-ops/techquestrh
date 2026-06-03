@@ -5,6 +5,26 @@
 
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+
+            {{-- Messages success / error / explication --}}
+            @if(session('success'))
+                <div class="bg-green-50 border-2 border-green-300 text-green-800 rounded-2xl px-6 py-5 mb-6 text-lg font-semibold">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="bg-orange-50 border-2 border-orange-300 text-orange-800 rounded-2xl px-6 py-5 mb-6 text-lg font-semibold">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            @if(session('explication'))
+                <div class="bg-blue-50 border-2 border-blue-200 text-blue-800 rounded-2xl px-6 py-5 mb-6 text-base">
+                    💡 <span class="font-bold">Explication :</span> {{ session('explication') }}
+                </div>
+            @endif
+
             {{-- Conteneur Blanc principal --}}
             <div class="bg-white shadow-sm sm:rounded-2xl p-8 border border-gray-100 mb-6">
                 

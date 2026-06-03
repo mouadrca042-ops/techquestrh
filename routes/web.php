@@ -38,15 +38,46 @@ Route::middleware(['auth', 'role:employe'])->group(function () {
         $defi = \App\Models\Defi::findOrFail($id);
         $contenu = json_decode($defi->contenu_json);
         
-        if ($request->reponse == $contenu->bonne_reponse) {
-            \App\Models\Progression::updateOrCreate(
-                ['user_id' => auth()->id(), 'defi_id' => $defi->id],
-                ['score' => 100]
-            );
-            return redirect()->route('parcours.show', $defi->parcours_id)->with('success', 'Bien joué !');
+        $user = auth()->user();
+
+        $progression = \App\Models\Progression::firstOrCreate(
+            ['user_id' => $user->id, 'defi_id' => $defi->id],
+            ['score' => 0, 'tentatives' => 0]
+        );
+        $progression->tentatives += 1;
+        $progression->save();
+        
+        // Compatible avec les deux formats
+        $bonneReponse = $contenu->bonne_reponse ?? $contenu->reponse ?? null;
+
+        if ($request->reponse == $bonneReponse) {
+            $dejaComplete = $progression->completed_at !== null;
+
+            $progression->score = 100;
+            $progression->completed_at = now();
+            $progression->save();
+
+            if (!$dejaComplete) {
+                $user->xp_total += $defi->xp_recompense;
+                $user->save();
+            }
+
+            return redirect()->route('parcours.show', $defi->parcours_id)
+                ->with('success', '🎉 Excellent ! Bonne réponse ! +' . $defi->xp_recompense . ' XP gagnés !')
+                ->with('explication', $contenu->explication ?? null);
         }
 
-        return back()->with('error', 'Mauvaise réponse, réessaie !');
+        $messages = [
+            '💪 Pas de panique, tu peux réessayer ! Chaque tentative te rapproche de la réussite.',
+            '🌟 Presque ! Relis bien la question et réessaie, tu vas y arriver !',
+            '😊 Ce n\'est pas grave, l\'important c\'est d\'apprendre. Réessaie !',
+            '🚀 Continue d\'essayer, tu es sur la bonne voie !',
+        ];
+
+        return back()
+            ->with('error', $messages[array_rand($messages)])
+            ->with('explication', $contenu->explication ?? null);
+
     })->name('defis.check');
 
     // Badges
@@ -69,6 +100,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
 // ─── Routes Admin ─────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
 
