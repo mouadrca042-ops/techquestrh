@@ -13,6 +13,17 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      */
+<<<<<<< HEAD
+public function run(): void
+{
+    $this->call([
+        UserSeeder::class,
+        ParcoursSeeder::class,
+        DefiSeeder::class,
+        BadgeSeeder::class,
+    ]);
+}
+=======
     public function run(): void
     {
        \App\Models\User::create([
@@ -98,4 +109,5 @@ class DatabaseSeeder extends Seeder
       ]
       ]);
     }
+>>>>>>> 510ce3d9d6766b1930a6ad94d335fa3374d9fde3
 }

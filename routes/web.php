@@ -10,15 +10,16 @@ use App\Http\Controllers\AdminController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
-// Page d'accueil
+// -------------------------------------------------------------
+// PAGE D'ACCUEIL
+// -------------------------------------------------------------
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Test rapide de rôle
 Route::get('/test-role', function() {
     return "Mon rôle actuel est : " . auth()->user()->role;
-});
+})->middleware('auth');
 
 // -------------------------------------------------------------
 // ROUTES EMPLOYÉ (Protégées par Auth et Rôle Employé)
@@ -48,7 +49,7 @@ Route::middleware(['auth', 'role:employe'])->group(function () {
         $progression->save();
         
         // Compatible avec les deux formats
-        $bonneReponse = $contenu->bonne_reponse ?? $contenu->reponse ?? null;
+        $bonneReponse = $contenu->bonne_reponse ?? $contenu->reponse ?? $contenu->answer ?? null;
 
         if ($request->reponse == $bonneReponse) {
             $dejaComplete = $progression->completed_at !== null;

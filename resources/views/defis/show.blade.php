@@ -41,13 +41,13 @@
                     
                     <div class="space-y-4 mb-10">
                         @if($defi->type == 'qcm')
-                            @foreach($contenu->options as $option)
-                                <label class="flex items-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
-                                    <input type="radio" name="reponse" value="{{ $option }}" class="w-5 h-5 text-blue-600" required>
-                                    <span class="ml-4 text-lg font-semibold text-gray-700">{{ $option }}</span>
-                                </label>
-                            @endforeach
-                        @else
+    @foreach($contenu->options as $index => $option)
+        <label class="flex items-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
+            <input type="radio" name="reponse" value="{{ $index }}" class="w-5 h-5 text-blue-600" required>
+            <span class="ml-4 text-lg font-semibold text-gray-700">{{ $option }}</span>
+        </label>
+    @endforeach
+@else
                             {{-- Cas Vrai / Faux --}}
                             <div class="flex space-x-4">
                                 <label class="flex-1 text-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-green-50">

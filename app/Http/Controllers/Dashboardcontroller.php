@@ -13,27 +13,26 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // 1. Calcul spécifique pour le parcours Excel (ID 1 par exemple)
-        // Compte le nombre de défis réussis par l'utilisateur sur le parcours 1
-        $defisExcelTotaux = 3; // Ajuste selon ton seeder (ex: 3 défis)
+        // 1. Calcul spécifique pour le parcours Excel
+        $defisExcelTotaux = 3; 
         $defisExcelReussis = Progression::where('user_id', $user->id)
-            ->whereIn('defi_id', [1, 2, 3]) // IDs de tes défis Excel
+            ->whereIn('defi_id', [1, 2, 3]) 
             ->where('score', 100)
             ->count();
         $progressionExcel = $defisExcelTotaux > 0 ? round(($defisExcelReussis / $defisExcelTotaux) * 100) : 0;
 
-        // 2. Calcul spécifique pour le parcours Teams (ID 2 par exemple)
-        $defisTeamsTotaux = 2; // Ajuste selon ton seeder (ex: 2 défis)
+        // 2. Calcul spécifique pour le parcours Teams
+        $defisTeamsTotaux = 2; 
         $defisTeamsReussis = Progression::where('user_id', $user->id)
-            ->whereIn('defi_id', [4, 5]) // IDs de tes défis Teams
+            ->whereIn('defi_id', [4, 5]) 
             ->where('score', 100)
             ->count();
         $progressionTeams = $defisTeamsTotaux > 0 ? round(($defisTeamsReussis / $defisTeamsTotaux) * 100) : 0;
 
-        // 3. Complétion globale moyenne pour la barre violette
+        // 3. Complétion globale moyenne
         $progressionGlobale = round(($progressionExcel + $progressionTeams) / 2);
 
-        // 4. Récupérer les parcours pour les boutons de reprise
+        // 4. Récupérer les parcours pour les boutons de reprise (Notation officielle de tes collègues)
         $parcoursEnCours = Parcours::take(2)->get();
 
         return view('dashboard', compact(
@@ -43,5 +42,5 @@ class DashboardController extends Controller
             'progressionTeams', 
             'parcoursEnCours'
         ));
-    }
+    } // <-- L'accolade de la fonction index était mal placée ou manquante ici !
 }
