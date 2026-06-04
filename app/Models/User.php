@@ -82,6 +82,6 @@ class User extends Authenticatable
     public function parcours(): BelongsToMany
     {
         return $this->belongsToMany(Parcours::class, 'parcours_user')
-                    ->withPivot('xp_gagne', 'statut');
+                    ->withPivot('xp_gagne', 'statut', 'niveau_depart');
     }
 }

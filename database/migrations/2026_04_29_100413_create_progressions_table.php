@@ -15,11 +15,7 @@ return new class extends Migration
         $table->id();
         $table->foreignId('user_id')->constrained()->onDelete('cascade');
         $table->foreignId('defi_id')->constrained()->onDelete('cascade');
-<<<<<<< HEAD
-        $table->float('score')->default(0);
-=======
         $table->float('score', 10, 2)->default(0);
->>>>>>> 510ce3d9d6766b1930a6ad94d335fa3374d9fde3
         $table->integer('tentatives')->default(0);
         $table->datetime('completed_at')->nullable();
         $table->timestamps();
