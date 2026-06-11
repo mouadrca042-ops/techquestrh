@@ -38,9 +38,9 @@ class BadgeSeeder extends Seeder
             ],
             [
                 'titre'            => '???',
-                'description'      => 'Badge secret — continuez à explorer !',
+                'description'      => 'Badge secret — réussissez le test final d\'une formation pour le débloquer !',
                 'condition_type'   => 'secret',
-                'condition_valeur' => 10,
+                'condition_valeur' => 1,
                 'image'            => 'badges/secret.png',
             ],
         ];

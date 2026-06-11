@@ -24,75 +24,79 @@ class DefiController extends Controller
     }
 
     /**
-     * Corrige le quiz, calcule le score, attribue l'XP et garde le meilleur score.
+     * Quiz question par question :
+     * - on valide UNE seule question à la fois ;
+     * - tant que la réponse est fausse, on reste sur la même question (tentatives
+     *   illimitées, non pénalisantes), avec un message encourageant ;
+     * - dès qu'elle est correcte, on avance ; à la dernière, le module est validé.
+     * La question en cours est sauvegardée (point de situation).
      */
     public function check(Request $request, $id)
     {
         $defi      = Defi::findOrFail($id);
-        $contenu   = $defi->contenu_json; // array via cast
-        $questions = $contenu['questions'];
+        $questions = $defi->contenu_json['questions'];
+        $nb        = count($questions);
         $user      = auth()->user();
 
         $progression = Progression::firstOrCreate(
             ['user_id' => $user->id, 'defi_id' => $defi->id],
-            ['score' => 0, 'tentatives' => 0]
+            ['score' => 0, 'tentatives' => 0, 'question_courante' => 0]
         );
-        $progression->tentatives += 1;
 
-        $reponses_user = $request->input('reponses', []);
-        $resultats     = [];
-        $nbCorrectes   = 0;
-
-        foreach ($questions as $question) {
-            $qid          = $question['id'];
-            $reponse_user = $reponses_user[$qid] ?? null;
-            // Comparaison souple : "1" == 1 (qcm index), "Vrai" == "Vrai" (vrai_faux)
-            $correct = ($reponse_user == $question['bonne_reponse']);
-            if ($correct) {
-                $nbCorrectes++;
-            }
-            $resultats[$qid] = [
-                'correct'       => $correct,
-                'reponse_user'  => $reponse_user,
-                'bonne_reponse' => $question['bonne_reponse'],
-                'explication'   => $question['explication'] ?? null,
-            ];
+        // Module déjà terminé → rien à revalider.
+        if ($progression->completed_at !== null) {
+            return redirect()->route('defis.show', $defi->id);
         }
 
-        $score = (int) round(($nbCorrectes / count($questions)) * 100);
+        // Question concernée (celle envoyée, sinon celle sauvegardée).
+        $index    = (int) $request->input('question_index', $progression->question_courante);
+        $index    = max(0, min($index, $nb - 1));
+        $question = $questions[$index];
 
-        // On garde le meilleur score (lu par le dashboard)
-        $progression->score = max($progression->score, $score);
+        $reponse = $request->input('reponse');
+        $correct = ($reponse !== null && $reponse == $question['bonne_reponse']);
 
-        $dejaComplete = $progression->completed_at !== null;
-        if ($score >= 70 && !$dejaComplete) {
-            $progression->completed_at = now();
+        // ── Mauvaise réponse : on reste sur la question, sans pénalité ──
+        if (! $correct) {
+            return redirect()->route('defis.show', $defi->id)
+                ->with('reponse_correcte', false)
+                ->with('message', Defi::messageMotivant(0));
+        }
+
+        // ── Bonne réponse ──
+        $estDerniere = ($index >= $nb - 1);
+
+        if ($estDerniere) {
+            // Toutes les questions réussies → module validé
+            $progression->question_courante = $nb;
+            $progression->score             = 100;
+            $progression->completed_at      = now();
+            $progression->save();
+
             $user->xp_total += $defi->xp_recompense;
             $user->save();
+
+            $nouveauxBadges = Badge::attribuerSelonProgression($user);
+
+            $redirect = redirect()->route('defis.show', $defi->id)
+                ->with('module_termine', true);
+
+            if ($nouveauxBadges->isNotEmpty()) {
+                $redirect->with('nouveaux_badges', $nouveauxBadges->map(fn ($b) => [
+                    'titre' => $b->titre,
+                    'type'  => $b->condition_type,
+                ])->all());
+            }
+
+            return $redirect;
         }
+
+        // On passe à la question suivante (progression sauvegardée).
+        $progression->question_courante = $index + 1;
         $progression->save();
 
-        // Attribution automatique des badges selon la progression de l'employé.
-        // Renvoie les badges nouvellement débloqués (pour l'affichage).
-        $nouveauxBadges = Badge::attribuerSelonProgression($user);
-
-        $redirect = redirect()->route('defis.show', $defi->id)
-            ->with('resultats', $resultats)
-            ->with('score', $score);
-
-        // Annonce des badges fraîchement débloqués (titre + type pour l'icône)
-        if ($nouveauxBadges->isNotEmpty()) {
-            $redirect->with('nouveaux_badges', $nouveauxBadges->map(fn ($b) => [
-                'titre' => $b->titre,
-                'type'  => $b->condition_type,
-            ])->all());
-        }
-
-        // Message d'encouragement si le module n'est pas encore validé (< 70 %).
-        if ($score < 70) {
-            $redirect->with('message_motivant', Defi::messageMotivant($score));
-        }
-
-        return $redirect;
+        return redirect()->route('defis.show', $defi->id)
+            ->with('reponse_correcte', true)
+            ->with('message', 'Bonne réponse ! Continue comme ça 💪');
     }
 }

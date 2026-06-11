@@ -1,16 +1,24 @@
 <x-app-layout>
     @php
-        $contenu   = $defi->contenu_json;            // array via cast
-        $lecon     = $contenu['lecon'];
-        $objectif  = $contenu['objectif'] ?? null;
-        $sections  = $lecon['sections'] ?? [];        // chaque section = un élément
-        $nbSous    = count($sections);
-        $questions = $contenu['questions'];
-        $resultats = session('resultats');            // null ou array indexé par question id
-        $score     = session('score');                // null ou int 0-100
-        $reussi    = $score !== null && $score >= 70;
-        // On démarre sur le quiz au retour d'une soumission, sinon sur le 1er élément.
-        $surQuiz   = $resultats || $score !== null;
+        $contenu     = $defi->contenu_json;            // array via cast
+        $lecon       = $contenu['lecon'];
+        $objectif    = $contenu['objectif'] ?? null;
+        $sections    = $lecon['sections'] ?? [];        // chaque section = un élément
+        $nbSous      = count($sections);
+        $questions   = $contenu['questions'];
+        $nbQuestions = count($questions);
+
+        $moduleTermine = $progression && $progression->completed_at !== null;
+        // Question en cours (sauvegardée) = point de situation
+        $qIndex = (int) ($progression->question_courante ?? 0);
+        $qIndex = max(0, min($qIndex, $nbQuestions - 1));
+        $questionCourante = $questions[$qIndex];
+        // Indice : champ dédié si présent, sinon repli sur l'explication
+        $indice = $questionCourante['indice'] ?? $questionCourante['explication'] ?? null;
+
+        // On ouvre directement le quiz si l'employé est en train de le faire / vient d'y répondre
+        $enCoursQuiz = $progression && $progression->question_courante > 0 && ! $moduleTermine;
+        $surQuiz     = $moduleTermine || $enCoursQuiz || session()->hasAny(['reponse_correcte', 'module_termine', 'message']);
     @endphp
 
     {{-- Évite le flash des panneaux avant l'initialisation d'Alpine --}}
@@ -18,7 +26,8 @@
 
     <div class="py-10">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"
-             x-data="{ etape: {{ $surQuiz ? "'quiz'" : '0' }}, total: {{ $nbSous }} }">
+             x-data="{ etape: {{ $surQuiz ? "'quiz'" : '0' }}, total: {{ $nbSous }}, lus: [] }"
+             x-effect="if (typeof etape === 'number' && ! lus.includes(etape)) lus.push(etape)">
 
             {{-- ── En-tête du module ───────────────────────────── --}}
             <div class="flex items-start justify-between mb-6">
@@ -45,9 +54,9 @@
                     <span class="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">
                         +{{ $defi->xp_recompense }} XP
                     </span>
-                    @if($progression && $progression->completed_at)
+                    @if($moduleTermine)
                         <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700">
-                            ✓ Complété — {{ $progression->score }}%
+                            ✓ Module validé
                         </span>
                     @endif
                 </div>
@@ -55,9 +64,7 @@
 
             <div class="grid lg:grid-cols-[280px_1fr] gap-6">
 
-                {{-- ════════════════════════════════════════════════ --}}
-                {{-- SOMMAIRE : éléments numérotés + quiz             --}}
-                {{-- ════════════════════════════════════════════════ --}}
+                {{-- SOMMAIRE : éléments numérotés + quiz --}}
                 <aside class="lg:sticky lg:top-6 self-start bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
                     <p class="text-xs font-bold uppercase tracking-wider text-gray-400 px-2 mb-3">
                         Éléments du module
@@ -69,10 +76,9 @@
                                 <button type="button" @click="etape = {{ $i }}"
                                         :class="etape === {{ $i }} ? 'bg-blue-50 text-blue-900 border-blue-200' : 'border-transparent text-gray-600 hover:bg-gray-50'"
                                         class="w-full flex items-center gap-3 text-left border rounded-xl px-3 py-2.5 transition">
-                                    <span :class="etape === {{ $i }} ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'"
-                                          class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm">
-                                        {{ $i + 1 }}
-                                    </span>
+                                    <span :class="etape === {{ $i }} ? 'bg-blue-600 text-white' : (lus.includes({{ $i }}) ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500')"
+                                          class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm"
+                                          x-text="(lus.includes({{ $i }}) && etape !== {{ $i }}) ? '✓' : '{{ $i + 1 }}'">{{ $i + 1 }}</span>
                                     <span class="text-sm font-semibold leading-tight">{{ $section['titre'] }}</span>
                                 </button>
                             </li>
@@ -82,27 +88,31 @@
                                     :class="etape === 'quiz' ? 'bg-green-50 text-green-900 border-green-200' : 'border-transparent text-gray-600 hover:bg-gray-50'"
                                     class="w-full flex items-center gap-3 text-left border rounded-xl px-3 py-2.5 transition">
                                 <span :class="etape === 'quiz' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'"
-                                      class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm">✓</span>
+                                      class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm">
+                                    {{ $moduleTermine ? '✓' : '?' }}
+                                </span>
                                 <span class="text-sm font-semibold leading-tight">
-                                    Quiz
-                                    <span class="block text-xs font-normal opacity-70">{{ count($questions) }} questions</span>
+                                    Test du module
+                                    <span class="block text-xs font-normal opacity-70">
+                                        @if($moduleTermine)
+                                            Réussi ✓
+                                        @else
+                                            Question {{ $qIndex + 1 }} / {{ $nbQuestions }}
+                                        @endif
+                                    </span>
                                 </span>
                             </button>
                         </li>
                     </ol>
                 </aside>
 
-                {{-- ════════════════════════════════════════════════ --}}
-                {{-- CONTENU : un panneau par élément, puis quiz      --}}
-                {{-- ════════════════════════════════════════════════ --}}
+                {{-- CONTENU --}}
                 <div>
 
                     {{-- ── Éléments (sections numérotées) ──────────── --}}
                     @foreach($sections as $i => $section)
                         <div x-show="etape === {{ $i }}" x-cloak class="space-y-6">
                             <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-
-                                {{-- Introduction affichée sur le 1er élément --}}
                                 @if($i === 0 && !empty($lecon['intro']))
                                     <p class="text-gray-700 leading-relaxed text-lg mb-6 pb-6 border-b border-gray-100">{{ $lecon['intro'] }}</p>
                                 @endif
@@ -133,7 +143,6 @@
                                     </div>
                                 @endif
 
-                                {{-- Points clés affichés sur le dernier élément --}}
                                 @if($i === $nbSous - 1 && !empty($lecon['resume']))
                                     <div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-5">
                                         <h3 class="font-bold text-blue-900 mb-3 text-xs uppercase tracking-wider">Points clés à retenir</h3>
@@ -149,7 +158,6 @@
                                 @endif
                             </div>
 
-                            {{-- Navigation entre éléments --}}
                             <div class="flex gap-4">
                                 @if($i > 0)
                                     <button type="button" @click="etape = {{ $i - 1 }}"
@@ -172,10 +180,10 @@
                         </div>
                     @endforeach
 
-                    {{-- ── Quiz (dernière étape) ───────────────────── --}}
+                    {{-- ── QUIZ : une question à la fois ───────────── --}}
                     <div x-show="etape === 'quiz'" x-cloak class="space-y-6">
 
-                        {{-- 🎉 Notification motivante : badge(s) fraîchement débloqué(s) --}}
+                        {{-- 🎉 Badge(s) fraîchement débloqué(s) --}}
                         @if(session('nouveaux_badges'))
                             <div x-data="{ show: true }" x-show="show" x-transition.scale
                                  class="relative bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-2xl p-6 text-center shadow-md">
@@ -200,192 +208,102 @@
                             </div>
                         @endif
 
-                        {{-- Résultat global (après soumission) --}}
-                        @if($score !== null)
-                            @if($reussi)
-                                <div class="bg-green-50 border-2 border-green-300 rounded-2xl p-6 text-center">
-                                    <div class="text-5xl font-black text-green-600 mb-1">{{ $score }}%</div>
-                                    <div class="text-green-800 font-bold text-lg">Bravo, module validé !</div>
-                                    @if(!($progression && $progression->score >= 70 && $progression->tentatives > 1))
-                                        <div class="text-green-700 text-sm mt-1">+{{ $defi->xp_recompense }} XP ajoutés à votre profil</div>
-                                    @endif
-                                </div>
-                            @else
-                                <div class="bg-orange-50 border-2 border-orange-300 rounded-2xl p-6 text-center">
-                                    <div class="text-5xl font-black text-orange-500 mb-1">{{ $score }}%</div>
-                                    <div class="text-orange-800 font-bold text-lg">Pas encore ! Il faut 70 % pour valider.</div>
-                                    @if(session('message_motivant'))
-                                        <p class="text-orange-700 mt-2 max-w-xl mx-auto">{{ session('message_motivant') }}</p>
-                                    @endif
-                                    <button type="button" @click="etape = 0" class="inline-block text-orange-800 font-semibold text-sm mt-3 underline">
-                                        Revoir les éléments
-                                    </button>
-                                </div>
-                            @endif
-                        @endif
-
-                        @if($resultats)
-
-                            {{-- MODE RÉSULTATS --}}
-                            <div class="space-y-4">
-                                <h2 class="text-lg font-bold text-gray-700">
-                                    Correction — {{ count(array_filter($resultats, fn($r) => $r['correct'])) }}/{{ count($questions) }} bonnes réponses
-                                </h2>
-
-                                @foreach($questions as $index => $q)
-                                    @php $r = $resultats[$q['id']]; @endphp
-                                    <div class="bg-white border-2 rounded-2xl p-5
-                                        {{ $r['correct'] ? 'border-green-300' : 'border-red-300' }}">
-
-                                        <div class="flex gap-3">
-                                            <span class="text-xl mt-0.5">{{ $r['correct'] ? '✅' : '❌' }}</span>
-                                            <div class="flex-1">
-                                                <p class="font-semibold text-gray-800 mb-3">
-                                                    {{ $index + 1 }}. {{ $q['question'] }}
-                                                </p>
-
-                                                @if($q['type'] === 'qcm')
-                                                    <div class="space-y-2">
-                                                        @foreach($q['options'] as $i => $option)
-                                                            <div class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg
-                                                                {{ $i == $q['bonne_reponse']            ? 'bg-green-100 text-green-800 font-semibold' : '' }}
-                                                                {{ $i == $r['reponse_user'] && !$r['correct'] ? 'bg-red-100 text-red-700' : '' }}
-                                                                {{ $i != $q['bonne_reponse'] && $i != $r['reponse_user'] ? 'text-gray-500' : '' }}">
-                                                                @if($i == $q['bonne_reponse'])
-                                                                    ✓
-                                                                @elseif($i == $r['reponse_user'] && !$r['correct'])
-                                                                    ✗
-                                                                @else
-                                                                    &nbsp;&nbsp;
-                                                                @endif
-                                                                {{ $option }}
-                                                            </div>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <div class="flex gap-3 text-sm">
-                                                        @foreach(['Vrai', 'Faux'] as $choix)
-                                                            <div class="px-4 py-2 rounded-lg
-                                                                {{ $choix === $q['bonne_reponse']              ? 'bg-green-100 text-green-800 font-semibold' : '' }}
-                                                                {{ $choix === $r['reponse_user'] && !$r['correct'] ? 'bg-red-100 text-red-700' : '' }}
-                                                                {{ $choix !== $q['bonne_reponse'] && $choix !== $r['reponse_user'] ? 'text-gray-400' : '' }}">
-                                                                @if($choix === $q['bonne_reponse']) ✓
-                                                                @elseif($choix === $r['reponse_user'] && !$r['correct']) ✗
-                                                                @endif
-                                                                {{ $choix }}
-                                                            </div>
-                                                        @endforeach
-                                                    </div>
-                                                @endif
-
-                                                @if(!$r['correct'])
-                                                    @php
-                                                        $encouragements = [
-                                                            "Pas grave, on apprend en se trompant !",
-                                                            "Presque ! Retenez bien ceci :",
-                                                            "Ce n'est pas loin, voici la clé :",
-                                                            "Continuez, vous progressez :",
-                                                        ];
-                                                    @endphp
-                                                    <p class="text-sm font-semibold text-gray-700 mt-3">{{ $encouragements[array_rand($encouragements)] }}</p>
-                                                @endif
-                                                @if($r['explication'])
-                                                    <p class="text-sm {{ $r['correct'] ? 'text-blue-700' : 'text-gray-600' }} mt-1">
-                                                        <span class="font-semibold">À retenir —</span> {{ $r['explication'] }}
-                                                    </p>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
+                        @if($moduleTermine)
+                            {{-- ✅ Module validé --}}
+                            <div class="bg-green-50 border-2 border-green-300 rounded-2xl p-8 text-center">
+                                <div class="text-5xl mb-2">🎉</div>
+                                <div class="text-2xl font-black text-green-700">Module validé — félicitations !</div>
+                                <p class="text-green-700 mt-1">Tu as répondu correctement à toutes les questions.</p>
                             </div>
-
-                            {{-- Boutons après résultats --}}
-                            <div class="flex gap-4 pt-2">
-                                @if($reussi)
-                                    <a href="{{ route('parcours.show', $defi->parcours_id) }}"
-                                       class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-lg transition-all">
-                                        Continuer la formation →
-                                    </a>
-                                @else
-                                    <a href="{{ route('defis.show', $defi->id) }}"
-                                       class="flex-1 text-center bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg transition-all">
-                                        Réessayer
-                                    </a>
-                                    <a href="{{ route('parcours.show', $defi->parcours_id) }}"
-                                       class="text-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-2xl font-semibold text-lg transition-all">
-                                        Formation
-                                    </a>
-                                @endif
-                            </div>
-
+                            <a href="{{ route('parcours.show', $defi->parcours_id) }}"
+                               class="block text-center bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-lg transition-all">
+                                Continuer la formation →
+                            </a>
                         @else
+                            {{-- Question courante --}}
+                            <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm"
+                                 x-data="{ showIndice: false }">
 
-                            {{-- MODE QUIZ --}}
-                            <form action="{{ route('defis.check', $defi->id) }}" method="POST" class="space-y-5">
-                                @csrf
+                                {{-- Barre de progression --}}
+                                <div class="flex items-center justify-between gap-4 mb-5">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 whitespace-nowrap">
+                                        Question {{ $qIndex + 1 }} / {{ $nbQuestions }}
+                                    </span>
+                                    <div class="flex-1 bg-gray-100 rounded-full h-2">
+                                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                             style="width: {{ $nbQuestions ? round(($qIndex / $nbQuestions) * 100) : 0 }}%"></div>
+                                    </div>
+                                </div>
 
-                                <h2 class="text-lg font-bold text-gray-700">
-                                    Quiz du module — {{ count($questions) }} question{{ count($questions) > 1 ? 's' : '' }}
-                                </h2>
-
-                                @foreach($questions as $index => $q)
-                                    <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                                        <p class="font-semibold text-gray-800 mb-4">
-                                            {{ $index + 1 }}. {{ $q['question'] }}
-                                        </p>
-
-                                        @if($q['type'] === 'qcm')
-                                            <div class="space-y-3">
-                                                @foreach($q['options'] as $i => $option)
-                                                    <label class="flex items-center p-3 border-2 border-gray-200 rounded-xl
-                                                                  cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
-                                                        <input type="radio"
-                                                               name="reponses[{{ $q['id'] }}]"
-                                                               value="{{ $i }}"
-                                                               class="w-4 h-4 text-blue-600"
-                                                               required>
-                                                        <span class="ml-3 text-gray-700">{{ $option }}</span>
-                                                    </label>
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            <div class="flex gap-4">
-                                                <label class="flex-1 text-center p-4 border-2 border-gray-200 rounded-xl
-                                                              cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all font-semibold text-gray-700">
-                                                    <input type="radio"
-                                                           name="reponses[{{ $q['id'] }}]"
-                                                           value="Vrai"
-                                                           class="mr-2"
-                                                           required>
-                                                    Vrai
-                                                </label>
-                                                <label class="flex-1 text-center p-4 border-2 border-gray-200 rounded-xl
-                                                              cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all font-semibold text-gray-700">
-                                                    <input type="radio"
-                                                           name="reponses[{{ $q['id'] }}]"
-                                                           value="Faux"
-                                                           class="mr-2">
-                                                    Faux
-                                                </label>
-                                            </div>
+                                {{-- Feedback de la tentative précédente --}}
+                                @if(session('reponse_correcte') === true)
+                                    <div class="bg-green-50 border border-green-300 text-green-800 rounded-xl px-4 py-3 mb-4 font-semibold">
+                                        ✅ {{ session('message') ?? 'Bonne réponse !' }}
+                                    </div>
+                                @elseif(session('reponse_correcte') === false)
+                                    <div class="bg-orange-50 border border-orange-300 text-orange-800 rounded-xl px-4 py-3 mb-4">
+                                        <span class="font-semibold">{{ session('message') ?? "Pas tout à fait — réessaie, tu vas y arriver !" }}</span>
+                                        @if($indice)
+                                            <span class="block text-sm mt-1 text-orange-600">Besoin d'un coup de pouce ? Affiche l'indice ci-dessous 👇</span>
                                         @endif
                                     </div>
-                                @endforeach
+                                @endif
 
-                                <div class="flex gap-4">
-                                    <button type="button" @click="etape = {{ max($nbSous - 1, 0) }}"
-                                            class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-2xl font-semibold text-lg transition-all">
-                                        ← Éléments
-                                    </button>
-                                    <button type="submit"
-                                            class="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl
-                                                   font-bold text-xl shadow-lg transition-all active:scale-95">
-                                        Valider mes réponses
-                                    </button>
-                                </div>
-                            </form>
+                                <p class="font-semibold text-gray-900 text-lg mb-5">{{ $questionCourante['question'] }}</p>
 
+                                <form action="{{ route('defis.check', $defi->id) }}" method="POST" class="space-y-4">
+                                    @csrf
+                                    <input type="hidden" name="question_index" value="{{ $qIndex }}">
+
+                                    @if($questionCourante['type'] === 'qcm')
+                                        <div class="space-y-3">
+                                            @foreach($questionCourante['options'] as $i => $option)
+                                                <label class="flex items-center p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
+                                                    <input type="radio" name="reponse" value="{{ $i }}" class="w-4 h-4 text-blue-600" required>
+                                                    <span class="ml-3 text-gray-700">{{ $option }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <div class="flex gap-4">
+                                            <label class="flex-1 text-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all font-semibold text-gray-700">
+                                                <input type="radio" name="reponse" value="Vrai" class="mr-2" required> Vrai
+                                            </label>
+                                            <label class="flex-1 text-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all font-semibold text-gray-700">
+                                                <input type="radio" name="reponse" value="Faux" class="mr-2"> Faux
+                                            </label>
+                                        </div>
+                                    @endif
+
+                                    {{-- Bouton indice (optionnel, à la demande) --}}
+                                    @if($indice)
+                                        <div>
+                                            <button type="button" @click="showIndice = ! showIndice"
+                                                    class="text-sm font-semibold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1">
+                                                💡 <span x-text="showIndice ? 'Masquer l\'indice' : 'Afficher l\'indice'"></span>
+                                            </button>
+                                            <div x-show="showIndice" x-cloak class="mt-2 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-3 text-amber-800 text-sm">
+                                                {{ $indice }}
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <div class="flex gap-4 pt-2">
+                                        <button type="button" @click="etape = {{ max($nbSous - 1, 0) }}"
+                                                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-all">
+                                            ← Leçon
+                                        </button>
+                                        <button type="submit"
+                                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-md transition-all active:scale-95">
+                                            Valider
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <p class="text-center text-sm text-gray-400">
+                                Aucune pénalité : tu peux réessayer autant de fois que nécessaire. Ta progression est sauvegardée 💾
+                            </p>
                         @endif
 
                     </div>
