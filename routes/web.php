@@ -7,8 +7,8 @@ use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\DashboardRHController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PositionnementController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
 
 // -------------------------------------------------------------
 // PAGE D'ACCUEIL
@@ -17,69 +17,29 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/test-role', function() {
+Route::get('/test-role', function () {
     return "Mon rôle actuel est : " . auth()->user()->role;
 })->middleware('auth');
 
 // -------------------------------------------------------------
-// ROUTES EMPLOYÉ (Protégées par Auth et Rôle Employé)
+// ROUTES EMPLOYÉ
 // -------------------------------------------------------------
 Route::middleware(['auth', 'role:employe'])->group(function () {
-    
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Parcours
+    // Parcours / Formations
     Route::get('/parcours', [ParcoursController::class, 'index'])->name('parcours.index');
     Route::get('/parcours/{parcours}', [ParcoursController::class, 'show'])->name('parcours.show');
     Route::post('/parcours/{parcours}/choisir', [ParcoursController::class, 'choisir'])->name('parcours.choisir');
 
-    // Défis
+    // Test de positionnement
+    Route::get('/parcours/{parcours}/positionnement', [PositionnementController::class, 'show'])->name('positionnement.show');
+    Route::post('/parcours/{parcours}/positionnement', [PositionnementController::class, 'check'])->name('positionnement.check');
+
+    // Modules / défis (quiz multi-questions via le contrôleur)
     Route::get('/defis/{id}', [DefiController::class, 'show'])->name('defis.show');
-    Route::post('/defis/{id}/check', function (Request $request, $id) {
-        $defi = \App\Models\Defi::findOrFail($id);
-        $contenu = json_decode($defi->contenu_json);
-        
-        $user = auth()->user();
-
-        $progression = \App\Models\Progression::firstOrCreate(
-            ['user_id' => $user->id, 'defi_id' => $defi->id],
-            ['score' => 0, 'tentatives' => 0]
-        );
-        $progression->tentatives += 1;
-        $progression->save();
-        
-        // Compatible avec les deux formats
-        $bonneReponse = $contenu->bonne_reponse ?? $contenu->reponse ?? $contenu->answer ?? null;
-
-        if ($request->reponse == $bonneReponse) {
-            $dejaComplete = $progression->completed_at !== null;
-
-            $progression->score = 100;
-            $progression->completed_at = now();
-            $progression->save();
-
-            if (!$dejaComplete) {
-                $user->xp_total += $defi->xp_recompense;
-                $user->save();
-            }
-
-            return redirect()->route('parcours.show', $defi->parcours_id)
-                ->with('success', '🎉 Excellent ! Bonne réponse ! +' . $defi->xp_recompense . ' XP gagnés !')
-                ->with('explication', $contenu->explication ?? null);
-        }
-
-        $messages = [
-            '💪 Pas de panique, tu peux réessayer ! Chaque tentative te rapproche de la réussite.',
-            '🌟 Presque ! Relis bien la question et réessaie, tu vas y arriver !',
-            '😊 Ce n\'est pas grave, l\'important c\'est d\'apprendre. Réessaie !',
-            '🚀 Continue d\'essayer, tu es sur la bonne voie !',
-        ];
-
-        return back()
-            ->with('error', $messages[array_rand($messages)])
-            ->with('explication', $contenu->explication ?? null);
-
-    })->name('defis.check');
+    Route::post('/defis/{id}/check', [DefiController::class, 'check'])->name('defis.check');
 
     // Badges
     Route::get('/badges', [BadgeController::class, 'index'])->name('badges.index');
@@ -94,7 +54,7 @@ Route::middleware(['auth', 'role:manager'])->group(function () {
 });
 
 // -------------------------------------------------------------
-// ROUTES PROFIL (Accessibles à tous les utilisateurs connectés)
+// ROUTES PROFIL (tous les utilisateurs connectés)
 // -------------------------------------------------------------
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
