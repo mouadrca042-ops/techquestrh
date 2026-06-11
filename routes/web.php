@@ -37,6 +37,10 @@ Route::middleware(['auth', 'role:employe'])->group(function () {
     Route::get('/parcours/{parcours}/positionnement', [PositionnementController::class, 'show'])->name('positionnement.show');
     Route::post('/parcours/{parcours}/positionnement', [PositionnementController::class, 'check'])->name('positionnement.check');
 
+    // Test global (examen final de la formation → badge secret)
+    Route::get('/parcours/{parcours}/test-final', [ParcoursController::class, 'testFinal'])->name('parcours.test');
+    Route::post('/parcours/{parcours}/test-final', [ParcoursController::class, 'testFinalCheck'])->name('parcours.test.check');
+
     // Modules / défis (quiz multi-questions via le contrôleur)
     Route::get('/defis/{id}', [DefiController::class, 'show'])->name('defis.show');
     Route::post('/defis/{id}/check', [DefiController::class, 'check'])->name('defis.check');

@@ -9,7 +9,7 @@ class Progression extends Model
 {
     protected $fillable = [
         'user_id', 'defi_id', 'score',
-        'tentatives', 'completed_at'
+        'tentatives', 'question_courante', 'completed_at'
     ];
 
     protected $casts = [

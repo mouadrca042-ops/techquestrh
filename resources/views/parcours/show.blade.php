@@ -101,24 +101,31 @@
                         $meta = $niveauMeta[$module->niveau] ?? ['label' => ucfirst($module->niveau), 'classe' => 'bg-gray-100 text-gray-700'];
                         $objectif = $module->contenu_json['objectif'] ?? null;
                         $duree = $module->contenu_json['lecon']['duree'] ?? null;
-                        $estDepart = $niveauDepart && $module->niveau === $niveauDepart && !$module->est_complete;
+                        $verrou = $module->verrouille ?? false;
+                        $estDepart = $niveauDepart && $module->niveau === $niveauDepart && !$module->est_complete && !$verrou;
+                        $niveauPrerequis = $module->niveau === 'intermediaire' ? 'Débutant'
+                                         : ($module->niveau === 'expert' ? 'Intermédiaire' : null);
                     @endphp
 
                     <div class="bg-white rounded-xl border p-5 flex items-center justify-between gap-4
-                        {{ $module->est_complete ? 'border-green-200' : ($estDepart ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200') }}">
+                        {{ $verrou ? 'border-gray-200 opacity-60' : ($module->est_complete ? 'border-green-200' : ($estDepart ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200')) }}">
 
                         <div class="flex items-start gap-4 min-w-0">
                             {{-- Numéro / état du module --}}
                             <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm
-                                {{ $module->est_complete ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600' }}">
-                                {{ $module->est_complete ? '✓' : $loop->iteration }}
+                                {{ $module->est_complete ? 'bg-green-600 text-white' : ($verrou ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-600') }}">
+                                {{ $module->est_complete ? '✓' : ($verrou ? '🔒' : $loop->iteration) }}
                             </div>
 
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Module {{ $loop->iteration }}</span>
                                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $meta['classe'] }}">{{ $meta['label'] }}</span>
-                                    @if($estDepart)
+                                    @if($module->est_complete)
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Terminé ✓</span>
+                                    @elseif($module->en_cours)
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">En cours · Question {{ $module->question_courante + 1 }}/{{ $module->nb_questions }}</span>
+                                    @elseif($estDepart)
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">Conseillé pour vous</span>
                                     @endif
                                 </div>
@@ -129,15 +136,22 @@
                                 <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
                                     @if($duree)<span>{{ $duree }} de lecture</span>@endif
                                     <span>+{{ $module->xp_recompense }} XP</span>
+                                    @if($verrou && $niveauPrerequis)
+                                        <span>🔒 Terminez le niveau {{ $niveauPrerequis }} d'abord</span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
 
-                        <div class="flex-shrink-0">
-                            @if(!$inscrit)
-                                <span class="text-xs text-gray-400 font-medium">Verrouillé</span>
+                        <div class="flex-shrink-0 text-right">
+                            @if($verrou)
+                                <span class="inline-flex items-center gap-1 text-sm text-gray-400 font-medium">🔒 Verrouillé</span>
                             @elseif($module->est_complete)
                                 <a href="{{ route('defis.show', $module->id) }}" class="text-sm font-semibold text-green-700 hover:underline">Revoir</a>
+                            @elseif($module->en_cours)
+                                <a href="{{ route('defis.show', $module->id) }}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition active:scale-95 inline-block">
+                                    Continuer
+                                </a>
                             @else
                                 <a href="{{ route('defis.show', $module->id) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition active:scale-95 inline-block">
                                     Commencer
@@ -151,6 +165,39 @@
                     </div>
                 @endforelse
             </div>
+
+            {{-- ── Test final de la formation (badge secret) ── --}}
+            @if($inscrit)
+                <div class="mt-6">
+                    @if($tousTermines)
+                        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center text-2xl shrink-0">🏆</div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-900">Test final de la formation</h3>
+                                    <p class="text-sm text-gray-600">Tous les modules sont terminés ! Réussis l'examen pour décrocher le <span class="font-semibold text-purple-700">badge secret 🏅</span>.</p>
+                                </div>
+                            </div>
+                            @if($examenReussi)
+                                <span class="px-4 py-2 bg-green-100 text-green-800 rounded-xl font-bold whitespace-nowrap">✓ Test final réussi</span>
+                            @else
+                                <a href="{{ route('parcours.test', $parcours) }}"
+                                   class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm transition active:scale-95 whitespace-nowrap">
+                                    Passer le test final →
+                                </a>
+                            @endif
+                        </div>
+                    @else
+                        <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-2xl shrink-0">🔒</div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-500">Test final de la formation — verrouillé</h3>
+                                <p class="text-sm text-gray-400">Termine <span class="font-semibold">tous les modules</span> ({{ $completes }}/{{ $total }}) pour débloquer l'examen final et le badge secret.</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             @if(!$inscrit && $modules->isNotEmpty())
                 <p class="text-center text-sm text-gray-400 mt-4">Commencez la formation pour débloquer les modules.</p>

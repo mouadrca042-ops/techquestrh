@@ -61,8 +61,9 @@ class Badge extends Model
                 return $faits >= $total;
             }),
 
-            // Badge secret : X défis réussis au total
-            'secret' => (clone $defisReussis)->count() >= $this->condition_valeur,
+            // Badge secret : attribué UNIQUEMENT en réussissant le test global d'une formation
+            // (géré dans ParcoursController@testFinalCheck), donc jamais automatiquement ici.
+            'secret' => false,
 
             default => false,
         };
