@@ -9,9 +9,9 @@
                         $isUnlocked = in_array($badge->id, $userBadgesIds);
                     @endphp
                     
-                    <div class="bg-white p-6 rounded-lg shadow-md text-center {{ $isUnlocked ? 'border-2 border-yellow-400' : 'opacity-50 grayscale' }}">
-                        <img src="{{ asset($badge->image) }}" alt="{{ $badge->titre }}" class="w-24 h-24 mx-auto mb-4">
-                        <h3 class="font-bold text-lg">{{ $isUnlocked ? $badge->titre : '???' }}</h3>
+                    <div class="bg-white p-6 rounded-lg shadow-md text-center {{ $isUnlocked ? 'border-2 border-yellow-400' : 'opacity-70' }}">
+                        <x-badge-icon :type="$badge->condition_type" :unlocked="$isUnlocked" size="lg" class="mb-4" />
+                        <h3 class="font-bold text-lg">{{ $badge->titre }}</h3>
                         <p class="text-sm text-gray-600">{{ $badge->description }}</p>
                         
                         @if(!$isUnlocked)

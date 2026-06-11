@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Defi;
 use App\Models\Progression;
+use App\Models\Badge;
 use Illuminate\Http\Request;
 
 class DefiController extends Controller
@@ -71,9 +72,21 @@ class DefiController extends Controller
         }
         $progression->save();
 
+        // Attribution automatique des badges selon la progression de l'employé.
+        // Renvoie les badges nouvellement débloqués (pour l'affichage).
+        $nouveauxBadges = Badge::attribuerSelonProgression($user);
+
         $redirect = redirect()->route('defis.show', $defi->id)
             ->with('resultats', $resultats)
             ->with('score', $score);
+
+        // Annonce des badges fraîchement débloqués (titre + type pour l'icône)
+        if ($nouveauxBadges->isNotEmpty()) {
+            $redirect->with('nouveaux_badges', $nouveauxBadges->map(fn ($b) => [
+                'titre' => $b->titre,
+                'type'  => $b->condition_type,
+            ])->all());
+        }
 
         // Message d'encouragement si le module n'est pas encore validé (< 70 %).
         if ($score < 70) {

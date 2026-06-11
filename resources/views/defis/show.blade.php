@@ -175,6 +175,31 @@
                     {{-- ── Quiz (dernière étape) ───────────────────── --}}
                     <div x-show="etape === 'quiz'" x-cloak class="space-y-6">
 
+                        {{-- 🎉 Notification motivante : badge(s) fraîchement débloqué(s) --}}
+                        @if(session('nouveaux_badges'))
+                            <div x-data="{ show: true }" x-show="show" x-transition.scale
+                                 class="relative bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-2xl p-6 text-center shadow-md">
+                                <button type="button" @click="show = false"
+                                        class="absolute top-3 right-4 text-amber-400 hover:text-amber-700 text-2xl leading-none">&times;</button>
+                                <p class="text-2xl font-black text-amber-800">🎉 Félicitations !</p>
+                                <p class="text-amber-700 mb-4">
+                                    Tu viens de débloquer {{ count(session('nouveaux_badges')) > 1 ? 'de nouveaux badges' : 'un nouveau badge' }} :
+                                </p>
+                                <div class="flex flex-wrap justify-center gap-6 mb-5">
+                                    @foreach(session('nouveaux_badges') as $b)
+                                        <div class="flex flex-col items-center">
+                                            <x-badge-icon :type="$b['type']" :unlocked="true" size="md" />
+                                            <span class="mt-2 font-bold text-amber-900">{{ $b['titre'] }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <a href="{{ route('badges.index') }}"
+                                   class="inline-block bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-2.5 rounded-xl transition">
+                                    Voir mes badges →
+                                </a>
+                            </div>
+                        @endif
+
                         {{-- Résultat global (après soumission) --}}
                         @if($score !== null)
                             @if($reussi)
