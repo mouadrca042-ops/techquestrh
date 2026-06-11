@@ -8,46 +8,77 @@ use Illuminate\View\View;
 
 class ParcoursController extends Controller
 {
-    // Affiche la liste des parcours
+    // Affiche le catalogue : TOUTES les formations.
+    // Les formations déjà commencées affichent « Continuer », les autres « Commencer ».
     public function index(): View
     {
-        $parcours = Parcours::all();
-        return view('parcours.index', compact('parcours'));
+        $user = auth()->user();
+
+        // IDs des formations déjà commencées (inscription pivot OU progression existante).
+        $inscritIds = $user->parcours()->pluck('parcours.id');
+        $avecProgressionIds = Parcours::whereHas('defis.progressions', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->pluck('id');
+        $dejaCommenceesIds = $inscritIds->merge($avecProgressionIds)->unique()->all();
+
+        // Catalogue = toutes les formations, avec le compte de défis par niveau (les « modules »)
+        $parcours = Parcours::withCount([
+                'defis as defis_debutant'      => fn($q) => $q->where('niveau', 'debutant'),
+                'defis as defis_intermediaire' => fn($q) => $q->where('niveau', 'intermediaire'),
+                'defis as defis_expert'        => fn($q) => $q->where('niveau', 'expert'),
+            ])
+            ->get();
+
+        return view('parcours.index', compact('parcours', 'dejaCommenceesIds'));
     }
 
-    // Affiche les défis d'un parcours 
+    // Affiche les défis d'un parcours
     public function show(Parcours $parcours): View
     {
-        $userId = auth()->id();
-        
-        // Récupérer les IDs des défis complétés par l'utilisateur
+        $user   = auth()->user();
+        $userId = $user->id;
+
+        $pivotParcours = $user->parcours()->where('parcours_id', $parcours->id)->first();
+        $inscrit       = $pivotParcours !== null;
+        $niveauDepart  = $pivotParcours?->pivot->niveau_depart;
+
         $defisCompletesIds = \App\Models\Progression::where('user_id', $userId)
             ->whereNotNull('completed_at')
             ->pluck('defi_id')
             ->toArray();
 
-        // Récupérer les défis et ajouter est_complete sur chacun
-        $defis = $parcours->defis()->orderBy('niveau')->get()->map(function ($defi) use ($defisCompletesIds) {
-            $defi->est_complete = in_array($defi->id, $defisCompletesIds);
-            return $defi;
-        });
+        // Les modules sont présentés dans l'ordre du programme (Module 1, 2, 3…).
+        $modules = $parcours->defis()
+            ->orderBy('ordre')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($defi) use ($defisCompletesIds) {
+                $defi->est_complete = in_array($defi->id, $defisCompletesIds);
+                return $defi;
+            })
+            ->values();
 
-        // Calculer la progression
-        $total = $defis->count();
-        $completes = $defis->where('est_complete', true)->count();
+        $total       = $modules->count();
+        $completes   = $modules->where('est_complete', true)->count();
         $progression = $total > 0 ? round(($completes / $total) * 100) : 0;
 
-        return view('parcours.show', compact('parcours', 'defis', 'progression'));
+        return view('parcours.show', compact(
+            'parcours', 'modules', 'progression', 'inscrit', 'niveauDepart', 'total', 'completes'
+        ));
     }
-    
-    // L'employé s'inscrit à un parcours
+
+    // L'employé s'inscrit à un parcours puis passe le test de positionnement
     public function choisir(Parcours $parcours)
     {
         $user = auth()->user();
-        
-        // On attache le parcours à l'utilisateur s'il n'y est pas déjà
+
         if (!$user->parcours()->where('parcours_id', $parcours->id)->exists()) {
             $user->parcours()->attach($parcours->id, ['statut' => 'en_cours']);
+        }
+
+        // Si un test de positionnement est configuré → rediriger vers le test
+        if (!empty($parcours->test_positionnement['questions'])) {
+            return redirect()->route('positionnement.show', $parcours);
         }
 
         return redirect()->route('parcours.show', $parcours);
