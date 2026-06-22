@@ -11,7 +11,6 @@ use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
-   
 
     // ─── Dashboard ───────────────────────────────────────────
     public function dashboard()
@@ -88,17 +87,33 @@ class AdminController extends Controller
     public function storeDefi(Request $request)
     {
         $request->validate([
-            'parcours_id'    => 'required|exists:parcours,id',
-            'titre'          => 'required|string|max:255',
-            'type'           => 'required|in:qcm,vrai_faux',
-            'niveau'         => 'required|in:debutant,intermediaire,expert',
-            'xp_recompense'  => 'required|integer|min:1',
-            'contenu_json'   => 'required|json',
+            'parcours_id'       => 'required|exists:parcours,id',
+            'titre'             => 'required|string|max:255',
+            'type'              => 'required|in:qcm,vrai_faux',
+            'niveau'            => 'required|in:debutant,intermediaire,expert',
+            'xp_recompense'     => 'required|integer|min:1',
+            'objectif'          => 'nullable|string|max:255',
+            'duree'             => 'nullable|string|max:50',
+            'sections'          => 'required|array|min:1',
+            'sections.*.titre'  => 'required|string|max:255',
+            'sections.*.corps'  => 'nullable|string',
+            'question'          => 'required|string|max:500',
+            'options'           => 'nullable|array',
+            'options.*'         => 'nullable|string|max:255',
+            'bonne_reponse'     => 'required',
+            'explication'       => 'nullable|string|max:500',
         ]);
 
-        Defi::create($request->only(
-            'parcours_id', 'titre', 'type', 'niveau', 'xp_recompense', 'contenu_json'
-        ));
+        $contenu = $this->construireContenuJson($request);
+
+        Defi::create([
+            'parcours_id'   => $request->parcours_id,
+            'titre'         => $request->titre,
+            'type'          => $request->type,
+            'niveau'        => $request->niveau,
+            'xp_recompense' => $request->xp_recompense,
+            'contenu_json'  => $contenu,
+        ]);
 
         // Mettre à jour nb_defis_total du parcours
         $parcours = Parcours::find($request->parcours_id);
@@ -117,17 +132,33 @@ class AdminController extends Controller
     public function updateDefi(Request $request, Defi $defi)
     {
         $request->validate([
-            'parcours_id'    => 'required|exists:parcours,id',
-            'titre'          => 'required|string|max:255',
-            'type'           => 'required|in:qcm,vrai_faux',
-            'niveau'         => 'required|in:debutant,intermediaire,expert',
-            'xp_recompense'  => 'required|integer|min:1',
-            'contenu_json'   => 'required|json',
+            'parcours_id'       => 'required|exists:parcours,id',
+            'titre'             => 'required|string|max:255',
+            'type'              => 'required|in:qcm,vrai_faux',
+            'niveau'            => 'required|in:debutant,intermediaire,expert',
+            'xp_recompense'     => 'required|integer|min:1',
+            'objectif'          => 'nullable|string|max:255',
+            'duree'             => 'nullable|string|max:50',
+            'sections'          => 'required|array|min:1',
+            'sections.*.titre'  => 'required|string|max:255',
+            'sections.*.corps'  => 'nullable|string',
+            'question'          => 'required|string|max:500',
+            'options'           => 'nullable|array',
+            'options.*'         => 'nullable|string|max:255',
+            'bonne_reponse'     => 'required',
+            'explication'       => 'nullable|string|max:500',
         ]);
 
-        $defi->update($request->only(
-            'parcours_id', 'titre', 'type', 'niveau', 'xp_recompense', 'contenu_json'
-        ));
+        $contenu = $this->construireContenuJson($request);
+
+        $defi->update([
+            'parcours_id'   => $request->parcours_id,
+            'titre'         => $request->titre,
+            'type'          => $request->type,
+            'niveau'        => $request->niveau,
+            'xp_recompense' => $request->xp_recompense,
+            'contenu_json'  => $contenu,
+        ]);
 
         return redirect()->route('admin.defis')->with('success', 'Défi mis à jour !');
     }
@@ -136,6 +167,40 @@ class AdminController extends Controller
     {
         $defi->delete();
         return redirect()->route('admin.defis')->with('success', 'Défi supprimé !');
+    }
+
+    /**
+     * Construit le contenu_json au format attendu par les vues employé :
+     * objectif, lecon.sections[], questions[0] (question/options/bonne_reponse/explication).
+     */
+    private function construireContenuJson(Request $request): array
+    {
+        return [
+            'objectif' => $request->objectif ?: $request->titre,
+            'lecon' => [
+                'duree' => $request->duree ?: '2 min',
+                'sections' => array_map(function ($s) {
+                    return [
+                        'titre' => $s['titre'],
+                        'corps' => $s['corps'] ?? null,
+                    ];
+                }, $request->sections),
+            ],
+            'questions' => [
+                [
+                    'id' => 1,
+                    'type' => $request->type,
+                    'question' => $request->question,
+                    'options' => $request->type === 'qcm'
+                        ? array_values(array_filter($request->options ?? []))
+                        : null,
+                    'bonne_reponse' => $request->type === 'qcm'
+                        ? (int) $request->bonne_reponse
+                        : $request->bonne_reponse,
+                    'explication' => $request->explication,
+                ],
+            ],
+        ];
     }
 
     // ─── Badges ───────────────────────────────────────────────

@@ -13,9 +13,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // 1. « Mon apprentissage » : uniquement les formations DÉJÀ COMMENCÉES par l'utilisateur.
-        //    Une formation est « commencée » si l'utilisateur s'y est inscrit (pivot parcours_user)
-        //    OU s'il a déjà une progression sur l'un de ses défis.
+        // Parcours inscrits ou avec progression
         $inscritIds = $user->parcours()->pluck('parcours.id');
 
         $avecProgressionIds = Parcours::whereHas('defis.progressions', function ($q) use ($user) {
@@ -24,27 +22,37 @@ class DashboardController extends Controller
 
         $commenceesIds = $inscritIds->merge($avecProgressionIds)->unique();
 
-        $monApprentissage = Parcours::whereIn('id', $commenceesIds)
-            ->withCount([
-                'defis as defis_debutant'      => fn($q) => $q->where('niveau', 'debutant'),
-                'defis as defis_intermediaire' => fn($q) => $q->where('niveau', 'intermediaire'),
-                'defis as defis_expert'        => fn($q) => $q->where('niveau', 'expert'),
-            ])
-            ->get()
-            ->map(function ($parcours) use ($user) {
-                $parcours->progression = $parcours->calculerProgressionGlobale($user->id);
-                return $parcours;
-            });
+        $parcoursEnCours = Parcours::whereIn('id', $commenceesIds)->get();
 
-        // 2. Progression globale = moyenne des progressions des formations commencées.
-        $progressionGlobale = $monApprentissage->isNotEmpty()
-            ? (int) round($monApprentissage->avg('progression'))
+        // Progression par parcours
+        $progressionExcel = 0;
+        $progressionTeams = 0;
+
+        foreach ($parcoursEnCours as $p) {
+            $total = $p->defis()->count();
+            $completes = Progression::where('user_id', $user->id)
+                ->whereIn('defi_id', $p->defis()->pluck('id'))
+                ->whereNotNull('completed_at')
+                ->count();
+            $prog = $total > 0 ? round(($completes / $total) * 100) : 0;
+
+            if ($p->outil === 'Excel') $progressionExcel = $prog;
+            if ($p->outil === 'Teams') $progressionTeams = $prog;
+
+            $p->progression = $prog;
+        }
+
+        // Progression globale
+        $progressionGlobale = $parcoursEnCours->isNotEmpty()
+            ? (int) round($parcoursEnCours->avg('progression'))
             : 0;
 
         return view('dashboard', compact(
             'user',
             'progressionGlobale',
-            'monApprentissage'
+            'progressionExcel',
+            'progressionTeams',
+            'parcoursEnCours'
         ));
     }
 }

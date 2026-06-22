@@ -7,43 +7,168 @@ use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\DashboardRHController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\PositionnementController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
-// -------------------------------------------------------------
-// PAGE D'ACCUEIL
-// -------------------------------------------------------------
+// Page d'accueil
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/test-role', function () {
+Route::get('/test-role', function() {
     return "Mon rôle actuel est : " . auth()->user()->role;
 })->middleware('auth');
 
 // -------------------------------------------------------------
-// ROUTES EMPLOYÉ
+// ROUTES EMPLOYÉ (Protégées par Auth et Rôle Employé)
 // -------------------------------------------------------------
 Route::middleware(['auth', 'role:employe'])->group(function () {
-
+    
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Parcours / Formations
+    // Parcours
     Route::get('/parcours', [ParcoursController::class, 'index'])->name('parcours.index');
     Route::get('/parcours/{parcours}', [ParcoursController::class, 'show'])->name('parcours.show');
     Route::post('/parcours/{parcours}/choisir', [ParcoursController::class, 'choisir'])->name('parcours.choisir');
 
-    // Test de positionnement
-    Route::get('/parcours/{parcours}/positionnement', [PositionnementController::class, 'show'])->name('positionnement.show');
-    Route::post('/parcours/{parcours}/positionnement', [PositionnementController::class, 'check'])->name('positionnement.check');
+    // Test final et positionnement
+    Route::get('/parcours/{parcours}/test', [ParcoursController::class, 'testFinal'])->name('parcours.test');
+    Route::post('/parcours/{parcours}/test', [ParcoursController::class, 'testFinalCheck'])->name('parcours.test.check');
+    Route::get('/parcours/{parcours}/positionnement', [ParcoursController::class, 'positionnement'])->name('positionnement.show');
 
-    // Test global (examen final de la formation → badge secret)
-    Route::get('/parcours/{parcours}/test-final', [ParcoursController::class, 'testFinal'])->name('parcours.test');
-    Route::post('/parcours/{parcours}/test-final', [ParcoursController::class, 'testFinalCheck'])->name('parcours.test.check');
-
-    // Modules / défis (quiz multi-questions via le contrôleur)
+    // Défis
     Route::get('/defis/{id}', [DefiController::class, 'show'])->name('defis.show');
-    Route::post('/defis/{id}/check', [DefiController::class, 'check'])->name('defis.check');
+
+    Route::post('/defis/{id}/check', function (Request $request, $id) {
+        $defi = \App\Models\Defi::findOrFail($id);
+        $contenu = $defi->contenu_json;
+
+        $user = auth()->user();
+
+        $progression = \App\Models\Progression::firstOrCreate(
+            ['user_id' => $user->id, 'defi_id' => $defi->id],
+            ['score' => 0, 'tentatives' => 0, 'question_courante' => 0]
+        );
+
+        $questions = $contenu['questions'] ?? [];
+        $qIndex = (int) $request->input('question_index', 0);
+        $question = $questions[$qIndex] ?? null;
+
+        if (!$question) {
+            return back()->with('reponse_correcte', false)->with('message', 'Question introuvable.');
+        }
+
+        $progression->tentatives += 1;
+
+        if ($question['type'] === 'qcm') {
+            $reponseCorrecte = ((int) $request->reponse === (int) $question['bonne_reponse']);
+        } else {
+            $reponseCorrecte = ($request->reponse == $question['bonne_reponse']);
+        }
+
+        if (!$reponseCorrecte) {
+            $progression->save();
+
+            $messages = [
+                'Pas de panique, tu peux réessayer ! Chaque tentative te rapproche de la réussite.',
+                'Presque ! Relis bien la question et réessaie, tu vas y arriver !',
+                "Ce n'est pas grave, l'important c'est d'apprendre. Réessaie !",
+                'Continue d\'essayer, tu es sur la bonne voie !',
+            ];
+
+            return back()
+                ->with('reponse_correcte', false)
+                ->with('message', $messages[array_rand($messages)]);
+        }
+
+        $prochainIndex = $qIndex + 1;
+        $nbQuestions = count($questions);
+        $nouveauxBadges = [];
+
+        if ($prochainIndex >= $nbQuestions) {
+            $dejaComplete = $progression->completed_at !== null;
+            $progression->completed_at = now();
+            $progression->score = 100;
+            $progression->question_courante = $qIndex;
+            $progression->save();
+
+            if (!$dejaComplete) {
+                $user->xp_total += $defi->xp_recompense;
+                $user->save();
+                $user->monterDeNiveau();
+
+                $badgesObtenusIds = $user->badges()->pluck('badges.id')->toArray();
+
+                $totalCompletes = \App\Models\Progression::where('user_id', $user->id)
+                    ->whereNotNull('completed_at')
+                    ->count();
+
+                if ($totalCompletes == 1) {
+                    $badge = \App\Models\Badge::where('condition_type', 'premier_defi')->first();
+                    if ($badge && !in_array($badge->id, $badgesObtenusIds)) {
+                        $user->badges()->attach($badge->id, ['obtenu_at' => now()]);
+                        $nouveauxBadges[] = ['type' => 'premier_defi', 'titre' => $badge->titre];
+                    }
+                }
+
+                $completesCetteSemaine = \App\Models\Progression::where('user_id', $user->id)
+                    ->whereNotNull('completed_at')
+                    ->whereBetween('completed_at', [now()->startOfWeek(), now()->endOfWeek()])
+                    ->count();
+
+                if ($completesCetteSemaine >= 5) {
+                    $badge = \App\Models\Badge::where('condition_type', 'assidu')->first();
+                    if ($badge && !in_array($badge->id, $badgesObtenusIds)) {
+                        $user->badges()->attach($badge->id, ['obtenu_at' => now()]);
+                        $nouveauxBadges[] = ['type' => 'assidu', 'titre' => $badge->titre];
+                    }
+                }
+
+                $dernieresProgressions = \App\Models\Progression::where('user_id', $user->id)
+                    ->whereNotNull('completed_at')
+                    ->orderByDesc('completed_at')
+                    ->take(3)
+                    ->pluck('score');
+
+                if ($dernieresProgressions->count() === 3 && $dernieresProgressions->every(fn($s) => $s == 100)) {
+                    $badge = \App\Models\Badge::where('condition_type', 'maitrise')->first();
+                    if ($badge && !in_array($badge->id, $badgesObtenusIds)) {
+                        $user->badges()->attach($badge->id, ['obtenu_at' => now()]);
+                        $nouveauxBadges[] = ['type' => 'maitrise', 'titre' => $badge->titre];
+                    }
+                }
+
+                $parcours = $defi->parcours;
+                $defisIdsDuParcours = $parcours->defis()->pluck('id');
+                $completesDuParcours = \App\Models\Progression::where('user_id', $user->id)
+                    ->whereIn('defi_id', $defisIdsDuParcours)
+                    ->whereNotNull('completed_at')
+                    ->count();
+
+                if ($completesDuParcours >= $defisIdsDuParcours->count()) {
+                    $badge = \App\Models\Badge::where('condition_type', 'explorateur')->first();
+                    if ($badge && !in_array($badge->id, $badgesObtenusIds)) {
+                        $user->badges()->attach($badge->id, ['obtenu_at' => now()]);
+                        $nouveauxBadges[] = ['type' => 'explorateur', 'titre' => $badge->titre];
+                    }
+                }
+            }
+        } else {
+            $progression->question_courante = $prochainIndex;
+            $progression->save();
+        }
+
+        $redirect = back()
+            ->with('reponse_correcte', true)
+            ->with('message', 'Bonne réponse !');
+
+        if (!empty($nouveauxBadges)) {
+            $redirect->with('nouveaux_badges', $nouveauxBadges);
+        }
+
+        return $redirect;
+
+    })->name('defis.check');
 
     // Badges
     Route::get('/badges', [BadgeController::class, 'index'])->name('badges.index');
@@ -58,7 +183,7 @@ Route::middleware(['auth', 'role:manager'])->group(function () {
 });
 
 // -------------------------------------------------------------
-// ROUTES PROFIL (tous les utilisateurs connectés)
+// ROUTES PROFIL (Accessibles à tous les utilisateurs connectés)
 // -------------------------------------------------------------
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
