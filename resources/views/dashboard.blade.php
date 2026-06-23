@@ -19,7 +19,7 @@
 
                 {{-- XP --}}
                 <div class="flex items-center gap-4 bg-yellow-50 p-5 rounded-2xl border border-yellow-100">
-                    <div class="text-4xl">⭐</div>
+                    <x-icon name="star" class="w-10 h-10 text-yellow-400" />
                     <div>
                         <div class="text-3xl font-black text-gray-900">{{ $user->xp_total }} XP</div>
                         <div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Niveau actuel : {{ strtoupper($user->niveau) }}</div>

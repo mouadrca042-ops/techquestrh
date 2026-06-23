@@ -11,7 +11,7 @@
                         <p class="text-gray-500 mt-1">Suivi de la progression et de la montée en compétences de vos collaborateurs</p>
                     </div>
                     <div class="hidden md:flex items-center gap-3">
-                        <a href="{{ route('dashboard.export') }}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-all">📄 Exporter en PDF</a>
+                        <a href="{{ route('dashboard.export') }}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-all inline-flex items-center gap-2"><x-icon name="document" class="w-4 h-4" /> Exporter en PDF</a>
                     </div>
                 </div>
             </div>
@@ -20,17 +20,17 @@
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                 @php
                     $cards = [
-                        ['label' => 'Employés',        'value' => $stats['total_employes'],          'icon' => '👤'],
-                        ['label' => 'XP Moyen',        'value' => $stats['xp_moyen'] . ' XP',        'icon' => '⚡'],
-                        ['label' => 'Taux complétion', 'value' => $stats['taux_completion'] . ' %',  'icon' => '📈'],
-                        ['label' => 'Parcours',        'value' => $stats['total_parcours'],          'icon' => '📚'],
-                        ['label' => 'Défis',           'value' => $stats['total_defis'],             'icon' => '🎯'],
-                        ['label' => 'Badges',          'value' => $stats['total_badges'],            'icon' => '🏅'],
+                        ['label' => 'Employés',        'value' => $stats['total_employes'],          'icon' => 'user',        'color' => 'text-blue-600'],
+                        ['label' => 'XP Moyen',        'value' => $stats['xp_moyen'] . ' XP',        'icon' => 'bolt',        'color' => 'text-amber-500'],
+                        ['label' => 'Taux complétion', 'value' => $stats['taux_completion'] . ' %',  'icon' => 'trending-up', 'color' => 'text-emerald-600'],
+                        ['label' => 'Parcours',        'value' => $stats['total_parcours'],          'icon' => 'academic',    'color' => 'text-indigo-600'],
+                        ['label' => 'Défis',           'value' => $stats['total_defis'],             'icon' => 'target',      'color' => 'text-green-600'],
+                        ['label' => 'Badges',          'value' => $stats['total_badges'],            'icon' => 'medal',       'color' => 'text-yellow-500'],
                     ];
                 @endphp
                 @foreach($cards as $card)
                     <div class="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col items-center text-center shadow-sm">
-                        <span class="text-2xl mb-2">{{ $card['icon'] }}</span>
+                        <x-icon :name="$card['icon']" class="w-8 h-8 mb-2 {{ $card['color'] }}" />
                         <span class="text-3xl font-black text-gray-900">{{ $card['value'] }}</span>
                         <span class="text-xs text-gray-500 mt-1 font-medium">{{ $card['label'] }}</span>
                     </div>
@@ -39,7 +39,7 @@
 
             {{-- ── F27 : graphique de progression de l'équipe sur 8 semaines ───── --}}
             <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
-                <h3 class="text-lg font-bold text-gray-900 mb-1">📊 Progression globale de l'équipe</h3>
+                <h3 class="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2"><x-icon name="chart-bar" class="w-5 h-5 text-purple-600" /> Progression globale de l'équipe</h3>
                 <p class="text-xs text-gray-500 mb-4">Taux de complétion cumulé de l'équipe sur les 8 dernières semaines</p>
                 <canvas id="progressionChart" height="90"></canvas>
             </div>
@@ -47,7 +47,7 @@
             {{-- ── F28 : alerte employés en difficulté ─────────────────────────── --}}
             <div class="bg-red-50/60 rounded-2xl border border-red-100 p-6 mb-6">
                 <div class="flex items-center gap-3 mb-4">
-                    <span class="text-2xl">⚠️</span>
+                    <x-icon name="alert" class="w-7 h-7 text-red-500 shrink-0" />
                     <div>
                         <h3 class="text-lg font-bold text-red-950">Accompagnement (progression faible)</h3>
                         <p class="text-xs text-red-700/80">Collaborateurs ayant moins de 20 % de progression, à suivre avec bienveillance (Exigence F28).</p>
@@ -74,7 +74,7 @@
             {{-- ── F26 : liste des employés (triable + filtrable) ──────────────── --}}
             <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-                    <h3 class="text-lg font-bold text-gray-900">👥 Progression des collaborateurs</h3>
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><x-icon name="users" class="w-5 h-5 text-purple-600" /> Progression des collaborateurs</h3>
                     <div class="flex flex-wrap gap-2">
                         <input id="filtreNom" type="text" placeholder="🔍 Rechercher un nom…"
                                class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
@@ -137,7 +137,9 @@
                                             <span class="text-xs font-semibold text-gray-600">{{ $emp->progression_globale }} %</span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">{{ $emp->badges_count }} 🏅</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1 font-semibold text-gray-700">{{ $emp->badges_count }} <x-icon name="medal" class="w-4 h-4 text-yellow-500" /></span>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Aucun collaborateur enregistré.</td></tr>
