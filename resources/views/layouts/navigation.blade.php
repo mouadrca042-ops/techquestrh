@@ -22,6 +22,9 @@
                         <x-nav-link :href="route('badges.index')" :active="request()->routeIs('badges.index')">
                             {{ __('Mes Badges') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('historique')" :active="request()->routeIs('historique')">
+                            {{ __('Historique') }}
+                        </x-nav-link>
                     @elseif(auth()->user()->isAdmin())
                         <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')">
                             {{ __('Dashboard') }}
@@ -88,6 +91,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('badges.index')" :active="request()->routeIs('badges.index')">
                     {{ __('Mes Badges') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('historique')" :active="request()->routeIs('historique')">
+                    {{ __('Historique') }}
                 </x-responsive-nav-link>
             @elseif(auth()->user()->isAdmin())
                 <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')">

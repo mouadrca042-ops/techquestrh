@@ -16,6 +16,13 @@
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
+        <!-- Poste occupé (CDC F01) -->
+        <div class="mt-4">
+            <x-input-label for="poste" :value="__('Poste occupé')" />
+            <x-text-input id="poste" class="block mt-1 w-full" type="text" name="poste" :value="old('poste')" required autocomplete="organization-title" placeholder="Ex : Comptable, Assistant(e), Technicien(ne)…" />
+            <x-input-error :messages="$errors->get('poste')" class="mt-2" />
+        </div>
+
         <!-- Password -->
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />

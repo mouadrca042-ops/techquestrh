@@ -6,6 +6,7 @@ use App\Http\Controllers\DefiController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\DashboardRHController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProgressionController;
 use App\Http\Controllers\AdminController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -172,6 +173,9 @@ Route::middleware(['auth', 'role:employe'])->group(function () {
 
     // Badges
     Route::get('/badges', [BadgeController::class, 'index'])->name('badges.index');
+
+    // Historique des défis complétés (CDC F06)
+    Route::get('/historique', [ProgressionController::class, 'historique'])->name('historique');
 });
 
 // -------------------------------------------------------------
