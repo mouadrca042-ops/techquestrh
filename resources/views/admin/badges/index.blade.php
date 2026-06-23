@@ -18,7 +18,7 @@
                     @forelse($badges as $badge)
                         <div class="border border-gray-100 rounded-2xl p-5 hover:shadow-sm transition-all">
                             <div class="flex items-start justify-between mb-3">
-                                <div class="text-3xl">{{ $badge->image ?? '🏅' }}</div>
+                                <x-badge-icon :type="$badge->condition_type" :unlocked="true" size="sm" />
                                 <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-semibold">{{ $badge->users_count }} utilisateur(s)</span>
                             </div>
                             <h3 class="font-black text-gray-900 text-lg">{{ $badge->titre }}</h3>

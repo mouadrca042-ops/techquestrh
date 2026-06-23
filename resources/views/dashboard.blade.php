@@ -84,7 +84,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         @forelse($badges as $badge)
                             <div class="flex flex-col items-center bg-yellow-50 border border-yellow-100 rounded-2xl p-4 text-center">
-                                <div class="text-4xl mb-2">{{ $badge->image ?? '🏅' }}</div>
+                                <x-badge-icon :type="$badge->condition_type" :unlocked="true" size="md" class="mb-2" />
                                 <div class="font-black text-gray-900 text-sm">{{ $badge->titre }}</div>
                                 <div class="text-xs text-yellow-600 font-semibold mt-1">Obtenu</div>
                             </div>
